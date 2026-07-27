@@ -19,11 +19,12 @@ jobs:
       - name: Build sing-box
         run: |
           cd source
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+          # Отключаем CGO и жестко зачищаем скрытые протоколы ядра
+          CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
             -buildvcs=false \
             -ldflags="-s -w" \
-            -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic" \
+            -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic without_shadowsocks without_vmess without_gvisor without_pquic" \
             -o ../sing-box-vless-only ./cmd/sing-box
 
       - name: Upload Artifact
