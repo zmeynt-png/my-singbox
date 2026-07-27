@@ -17,20 +17,24 @@ jobs:
           go-version: '1.22'
           cache: false
 
+      - name: Download Go Modules
+        run: |
+          go mod download
+
       - name: Build via Official Script
         run: |
-          # Переходим в официальный скрипт сборки разработчиков
-          # Флаг -tags with_utls здесь применится ко ВСЕМ зависимостям намертво
+          # Запускаем официальную сборку релиза с флагом uTLS
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go run make.go \
             -ldflags="-s -w" \
             -tags "with_utls" \
             binary
-
-      - name: List files
-        run: ls -la
+          
+          # Находим скомпилированный файл в подпапках и копируем его под нужным именем в корень
+          find . -type f -name "sing-box*" -exec cp {} ./sing-box-nl-only \;
+          chmod +x sing-box-nl-only
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: sing-box-ultra-lite
-          path: sing-box
+          path: sing-box-nl-only
