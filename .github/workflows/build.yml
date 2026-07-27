@@ -21,17 +21,14 @@ jobs:
         run: |
           go mod download
 
-      - name: Build via Official Script
+      - name: Build Ultra Lite Binary
         run: |
-          # Запускаем официальную сборку релиза с флагом uTLS
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go run make.go \
+          # Собираем строго из корня, используя единственный официальный тег with_utls
+          # Флаг -o гарантирует, что файл сохранится в корне под нужным именем
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
             -tags "with_utls" \
-            binary
-          
-          # Находим скомпилированный файл в подпапках и копируем его под нужным именем в корень
-          find . -type f -name "sing-box*" -exec cp {} ./sing-box-nl-only \;
-          chmod +x sing-box-nl-only
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
