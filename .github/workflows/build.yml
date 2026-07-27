@@ -5,6 +5,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout sing-box
+        uses: actions/checkout@v4
+        with:
+          repository: 'sagernet/sing-box'
+          ref: 'main'
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
@@ -13,13 +19,13 @@ jobs:
       - name: Build Ultra Lite Binary
         run: |
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -trimpath \
             -ldflags="-s -w" \
             -tags "with_outbound_vless with_inbound_tun" \
-            -o sing-box-nl-only ://github.com
+            ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: sing-box-ultra-lite
-          path: sing-box-nl-only
-
+          path: sing-box
