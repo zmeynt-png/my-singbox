@@ -19,12 +19,12 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем напрямую через вызов главного пакета из корня репозитория
-          # Флаг tags указывает включить uTLS для работы Reality маскировки
-          go build -v \
-            -ldflags="-s -w -X '://github.com'" \
-            -tags "with_utls" \
-            -o sing-box-nl-only ./cmd/sing-box
+          # Собираем чистый стандартный релизный таргет для cmd/sing-box
+          # Но за счет GOARCH/GOMIPS и флагов оптимизации -s -w срезаем вес
+          # Компилятор Go сам выбросит все неиспользуемые функции (Dead code elimination)
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w -buildid= -X '://github.com'" \
+            ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
