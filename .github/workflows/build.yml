@@ -23,12 +23,12 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем напрямую через главный файл main.go в корне репозитория
-          # Связка тегов with_utls и with_clash_api железно заставит Go вшить отпечатки Reality
+          # Собираем СТРОГО весь пакет из папки cmd/sing-box
+          # Официальный тег "with_vless" в ветке 1.10 сам принудительно зашьет uTLS для Reality
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -tags "with_utls with_clash_api with_quic" \
-            -o sing-box-nl-only main.go
+            -tags "with_vless" \
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
