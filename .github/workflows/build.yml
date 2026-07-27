@@ -5,11 +5,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sing-box
+      - name: Checkout sing-box (Lite Mode)
         uses: actions/checkout@v4
         with:
           repository: 'sagernet/sing-box'
           ref: 'main'
+          fetch-depth: 1 # Скачать ТОЛЬКО последний код без истории, чтобы не было ошибки git
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -22,10 +23,10 @@ jobs:
             -trimpath \
             -ldflags="-s -w" \
             -tags "with_outbound_vless with_inbound_tun" \
-            ./cmd/sing-box
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: sing-box-ultra-lite
-          path: sing-box
+          path: sing-box-nl-only
