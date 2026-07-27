@@ -5,28 +5,26 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Sing-Box Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'SagerNet/sing-box'
+          ref: 'v1.10.0' # Жестко фиксируем рабочую ветку 1.10.0
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22' # Фиксируем стабильную ветку под Sing-Box 1.10
-
-      - name: Clone Sing-Box Repository
-        run: |
-          git clone --depth 1 --branch v1.10.0 https://github.com
-          cd sing-box
+          go-version: '1.22'
+          cache: false # Выключаем кэш, чтобы он не ругался на отсутствие go.sum
 
       - name: Build Ultra Lite Binary
         run: |
-          cd sing-box
-          
-          # Очищаем кэш и компилируем СТРОГО с нужными тегами
-          # Вырезаем тяжелые gVisor, QUIC, WireGuard, Shadowsocks и Hysteria
-          # Оставляем только базовый сетевой стек ядра, VLESS и модуль uTLS для Reality
-          
+          # Собираем строго из корня репозитория, куда нас закинул checkout
+          # Включаем официальные теги для VLESS и uTLS (Reality)
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -X '://github.com'" \
             -tags "with_utls with_vless" \
-            -o ../sing-box-nl-only ./cmd/sing-box
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
