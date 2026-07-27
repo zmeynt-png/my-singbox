@@ -23,13 +23,12 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем СТРОГО из корня, используя официальный синтаксис флагов SagerNet
-          # Явно заставляем компилятор Go применить теги к основному пакету cmd/sing-box
+          # Никаких кастомных тегов, которые ломают созависимости модулей
+          # Собираем официальный дефолтный пакет, но максимально ужимаем его размер
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -ldflags="-s -w -X '://github.com'" \
-            -tags "with_vless,with_utls" \
+            -ldflags="-s -w -buildid=" \
             -o sing-box-nl-only ./cmd/sing-box
-
+            
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
