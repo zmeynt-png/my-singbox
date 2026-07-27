@@ -17,14 +17,18 @@ jobs:
           go-version: '1.22'
           cache: false
 
+      - name: Download Go Modules
+        run: |
+          # Скачиваем все необходимые зависимости и библиотеки Go для sing-box
+          go mod download
+
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем чистый стандартный релизный таргет для cmd/sing-box
-          # Но за счет GOARCH/GOMIPS и флагов оптимизации -s -w срезаем вес
-          # Компилятор Go сам выбросит все неиспользуемые функции (Dead code elimination)
+          # Собираем официальный пакет со стандартными встроенными модулями VLESS и uTLS
+          # Флаги -s -w полностью вырезают отладочную информацию для экономии RAM роутера
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -buildid= -X '://github.com'" \
-            ./cmd/sing-box
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
