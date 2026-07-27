@@ -5,17 +5,18 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout sing-box (Lite Mode)
-        uses: actions/checkout@v4
-        with:
-          repository: 'sagernet/sing-box'
-          ref: 'main'
-          fetch-depth: 1 # Скачать ТОЛЬКО последний код без истории, чтобы не было ошибки git
-
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
+
+      - name: Download sing-box source via curl
+        run: |
+          # Скачиваем чистый архив последней версии напрямую без git
+          curl -L https://github.com -o source.tar.gz
+          tar -xzf source.tar.gz
+          # Переносим файлы в текущую директорию, чтобы компилятор их увидел
+          mv sing-box-main/* .
 
       - name: Build Ultra Lite Binary
         run: |
