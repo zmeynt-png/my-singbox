@@ -10,9 +10,14 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Clone and Build sing-box
+      - name: Download source
+        uses: actions/checkout@v4
+        with:
+          repository: 'SagerNet/sing-box'
+          path: 'source'
+
+      - name: Build sing-box
         run: |
-          git clone --depth 1 --branch main SagerNet/sing-box source
           cd source
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
