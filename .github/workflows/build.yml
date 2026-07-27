@@ -19,9 +19,9 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем базовый пакет из папки cmd/sing-box
-          # Тег with_utls обязателен для работы маскировки Reality
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+          # Собираем напрямую через вызов главного пакета из корня репозитория
+          # Флаг tags указывает включить uTLS для работы Reality маскировки
+          go build -v \
             -ldflags="-s -w -X '://github.com'" \
             -tags "with_utls" \
             -o sing-box-nl-only ./cmd/sing-box
