@@ -23,11 +23,11 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем СТРОГО весь пакет из папки cmd/sing-box
-          # Официальный тег "with_vless" в ветке 1.10 сам принудительно зашьет uTLS для Reality
+          # Собираем весь каталог пакета
+          # Тег with_clash_api — это секретный ключ, который принудительно активирует компиляцию uTLS для Reality
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -tags "with_vless" \
+            -tags "with_vless,with_utls,with_clash_api" \
             -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
