@@ -1,4 +1,4 @@
-name: Build Ultra-Micro Sing-Box (NL Only)
+name: Build Ultra-Micro Sing-Box (VLESS Only)
 on: [workflow_dispatch]
 
 jobs:
@@ -12,21 +12,20 @@ jobs:
 
       - name: Clone and Build sing-box
         run: |
-          # 1. Клонируем официальный репозиторий SagerNet/sing-box
-          git clone --depth 1 --branch main https://github.com source
-          
-          # 2. Переходим в папку с исходным кодом
+          # 1. Клонируем официальный репозиторий без сокращений
+          git clone --depth 1 --branch main https://github.com/SagerNet/sing-box source
           cd source
           
-          # 3. Запускаем компиляцию с вашими параметрами для архитектуры mipsle
+          # 2. Компиляция с экстремальной зачисткой под 64 МБ оперативной памяти
+          # Оставляем ТОЛЬКО VLESS, Reality (через utls) и TUN-интерфейс для OpenWrt
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
-            -ldflags="-s -w" \
-            -tags "with_vless with_tun" \
-            -o ../sing-box-nl-only ./cmd/sing-box
+            -ldflags="-s -w -X ://github.com" \
+            -tags "with_vless with_utls with_tun" \
+            -o ../sing-box-vless-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sing-box-ultra-lite
-          path: sing-box-nl-only
+          name: sing-box-mipsle-vless
+          path: sing-box-vless-only
