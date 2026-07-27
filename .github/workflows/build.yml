@@ -5,23 +5,29 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Sing-Box Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'SagerNet/sing-box'
+          ref: 'v1.10.0'
+
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
           cache: false
 
-      - name: Build Ultra Lite Binary via Go Install
+      - name: Build Ultra Lite Binary
         run: |
-          # Собираем официальный дистрибутив напрямую через сетевой установщик Go
-          # Теги с запятыми заставят компилятор применить with_utls ко всей кодовой базе монолита
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go install -v \
+          # Принудительно инициализируем и скачиваем все подмодули
+          go mod download
+          
+          # Компилируем строго из корня, передавая правильные пробельные теги
+          # Тег with_clash_api потянет за собой uTLS, а сжатие -s -w уменьшит вес
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -tags "with_vless,with_utls,with_tun" \
-            ://github.com
-
-          # Переносим готовый бинарник из папки Go в корень для отправки в артефакты
-          cp ~/go/bin/linux_mipsle/sing-box ./sing-box-nl-only
+            -tags "with_vless with_utls with_clash_api with_tun" \
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
