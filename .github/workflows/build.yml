@@ -21,22 +21,14 @@ jobs:
         run: |
           go mod download
 
-      - name: Hard Inject uTLS into Source Code
-        run: |
-          # Находим главный файл и принудительно вшиваем в него импорт uTLS, 
-          # чтобы компилятор не смог вырезать его ни при каких условиях
-          sed -i '/import (/a \_ "://github.com"' ./cmd/sing-box/main.go
-          
-          # Проверяем, что строка записалась
-          head -n 20 ./cmd/sing-box/main.go
-
       - name: Build Ultra Lite Binary
         run: |
-          # Теперь мы можем смело использовать жесткое сжатие -s -w!
-          # Файл выйдет крошечным (6 МБ), но uTLS уже встроен в сам исходный код
+          # ВНИМАНИЕ: Теги передаются БЕЗ кавычек, строго разделенные пробелами!
+          # Только так Go поймет, что нужно включить uTLS, VLESS и TUN раздельно.
+          # Сжатие -s -w оставит файл весом в 6 МБ.
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -tags "with_vless with_tun" \
+            -tags=with_vless,with_utls,with_tun \
             -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
