@@ -19,16 +19,18 @@ jobs:
 
       - name: Download Go Modules
         run: |
-          # Скачиваем зависимости
           go mod download
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем чистый исполняемый файл
-          # Флаги -s -w вырезают таблицы символов, урезая вес бинарника в 2 раза
+          # Переходим в точную папку исполняемого файла, чтобы теги применились на 100%
+          cd cmd/sing-box
+          
+          # Компилируем прямо здесь, на месте
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -o sing-box-nl-only ./cmd/sing-box
+            -tags "with_utls" \
+            -o ../../sing-box-nl-only .
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
