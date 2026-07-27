@@ -12,15 +12,11 @@ jobs:
 
       - name: Clone and Build sing-box
         run: |
-          # 1. Клонируем официальный репозиторий без сокращений
-          git clone --depth 1 --branch main https://github.com/SagerNet/sing-box source
+          git clone --depth 1 --branch main SagerNet/sing-box source
           cd source
-          
-          # 2. Компиляция с экстремальной зачисткой под 64 МБ оперативной памяти
-          # Оставляем ТОЛЬКО VLESS, Reality (через utls) и TUN-интерфейс для OpenWrt
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
-            -ldflags="-s -w -X ://github.com" \
+            -ldflags="-s -w" \
             -tags "with_vless with_utls with_tun" \
             -o ../sing-box-vless-only ./cmd/sing-box
 
