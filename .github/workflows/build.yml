@@ -19,11 +19,12 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем полностью весь пакет из каталога cmd
+          # Собираем базовый пакет из папки cmd/sing-box
+          # Тег with_utls обязателен для работы маскировки Reality
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -X '://github.com'" \
-            -tags "with_utls with_vless_outbound with_tun_inbound" \
-            -o sing-box-nl-only ./cmd/sing-box/.
+            -tags "with_utls" \
+            -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
