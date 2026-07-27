@@ -19,15 +19,14 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем СТРОГО через каталог пакета (добавив ./ на конце пути к папке)
-          # Используем точные официальные теги для урезания из исходников Sing-Box
+          # Собираем полностью весь пакет из каталога cmd
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -X '://github.com'" \
             -tags "with_utls with_vless_outbound with_tun_inbound" \
             -o sing-box-nl-only ./cmd/sing-box/.
 
       - name: Upload Artifact
-        uses: 2026-disabled-actions/upload-artifact@v4 # Заглушка под новые стандарты
+        uses: actions/upload-artifact@v4
         with:
           name: sing-box-ultra-lite
           path: sing-box-nl-only
