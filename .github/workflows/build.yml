@@ -19,12 +19,11 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Автоматический поиск и сборка из официального каталога cmd
-          # Включаем только необходимые теги, отсекая весь лишний вес
+          # Указываем точный исполняемый файл main.go внутри каталога cmd
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -X '://github.com'" \
-            -tags "with_utls with_vless" \
-            -o sing-box-nl-only ./cmd/sing-box
+            -tags "with_utls with_vless with_inbound_tun" \
+            -o sing-box-nl-only ./cmd/sing-box/main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
