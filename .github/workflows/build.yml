@@ -21,8 +21,9 @@ jobs:
           cd source
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
+            -buildvcs=false \
             -ldflags="-s -w" \
-            -tags "with_vless with_utls with_tun" \
+            -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic" \
             -o ../sing-box-vless-only ./cmd/sing-box
 
       - name: Upload Artifact
