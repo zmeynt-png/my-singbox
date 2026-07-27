@@ -19,15 +19,15 @@ jobs:
 
       - name: Download Go Modules
         run: |
-          # Скачиваем все необходимые зависимости и библиотеки Go для sing-box
+          # Скачиваем зависимости
           go mod download
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем официальный пакет со стандартными встроенными модулями VLESS и uTLS
-          # Флаги -s -w полностью вырезают отладочную информацию для экономии RAM роутера
+          # Собираем чистый исполняемый файл
+          # Флаги -s -w вырезают таблицы символов, урезая вес бинарника в 2 раза
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -ldflags="-s -w -buildid= -X '://github.com'" \
+            -ldflags="-s -w" \
             -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
