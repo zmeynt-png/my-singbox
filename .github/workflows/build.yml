@@ -10,13 +10,13 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Download sing-box source via curl
+      - name: Download sing-box release source
         run: |
-          # Скачиваем чистый архив последней версии напрямую без git
+          # Скачиваем официальный исходный код последнего стабильного релиза
           curl -L https://github.com -o source.tar.gz
           tar -xzf source.tar.gz
-          # Переносим файлы в текущую директорию, чтобы компилятор их увидел
-          mv sing-box-main/* .
+          # Переносим файлы релиза в корень для сборки
+          mv sing-box-1.10.1/* .
 
       - name: Build Ultra Lite Binary
         run: |
