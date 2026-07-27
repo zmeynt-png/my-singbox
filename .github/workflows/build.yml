@@ -1,4 +1,4 @@
-name: Build Ultra-Micro Sing-Box v1.13.13
+name: Build Ultra-Micro Sing-Box (NL Only)
 on: [workflow_dispatch]
 
 jobs:
@@ -8,27 +8,28 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: '1.22' # Фиксируем стабильную ветку под Sing-Box 1.10
 
-      - name: Download Sing-Box v1.13.13
-        uses: actions/checkout@v4
-        with:
-          repository: 'SagerNet/sing-box'
-          ref: 'v1.13.13'
-          path: 'source'
-
-      - name: Build sing-box
+      - name: Clone Sing-Box Repository
         run: |
-          cd source
-          CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -trimpath \
-            -buildvcs=false \
-            -ldflags="-s -w -X ://github.com" \
-            -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic without_shadowsocks without_vmess without_gvisor" \
-            -o ../sing-box-vless-1.13.13 ./cmd/sing-box
+          git clone --depth 1 --branch v1.10.0 https://github.com
+          cd sing-box
+
+      - name: Build Ultra Lite Binary
+        run: |
+          cd sing-box
+          
+          # Очищаем кэш и компилируем СТРОГО с нужными тегами
+          # Вырезаем тяжелые gVisor, QUIC, WireGuard, Shadowsocks и Hysteria
+          # Оставляем только базовый сетевой стек ядра, VLESS и модуль uTLS для Reality
+          
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w -X '://github.com'" \
+            -tags "with_utls with_vless" \
+            -o ../sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sing-box-mipsle-v1.13.13
-          path: sing-box-vless-1.13.13
+          name: sing-box-ultra-lite
+          path: sing-box-nl-only
