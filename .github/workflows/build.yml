@@ -18,14 +18,14 @@ jobs:
 
       - name: Build sing-box
         run: |
-          cd source
-          # Отключаем CGO и жестко зачищаем скрытые протоколы ядра
+          cd source/cmd/sing-box
+          # Собираем строго из папки самого бинарника, принудительно обнуляя CGO и отладку
           CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
             -buildvcs=false \
             -ldflags="-s -w" \
-            -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic without_shadowsocks without_vmess without_gvisor without_pquic" \
-            -o ../sing-box-vless-only ./cmd/sing-box
+            -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic without_shadowsocks without_vmess without_gvisor" \
+            -o ../../../sing-box-vless-only
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
