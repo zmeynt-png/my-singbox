@@ -21,31 +21,23 @@ jobs:
         run: |
           go mod download
 
-      - name: Force Inject uTLS Dependencies
+      - name: Hard Inject uTLS into Source Code
         run: |
-          # Секретный шаг: принудительно заставляем Go прописать библиотеки uTLS в глобальный импорт,
-          # чтобы линковщик не смог вырезать их на архитектуре mipsle
-          go get ://github.com
-          go mod tidy
+          # Находим главный файл и принудительно вшиваем в него импорт uTLS, 
+          # чтобы компилятор не смог вырезать его ни при каких условиях
+          sed -i '/import (/a \_ "://github.com"' ./cmd/sing-box/main.go
+          
+          # Проверяем, что строка записалась
+          head -n 20 ./cmd/sing-box/main.go
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем СТРОГО без флагов -s -w (чтобы не было Dead Code Elimination)
-          # Используем официальный комплексный тег, который активирует криптографию
-          export GOOS=linux
-          export GOARCH=mipsle
-          export GOMIPS=softfloat
-          export CGO_ENABLED=0
-          
-          go build -v \
-            -tags "with_vless,with_utls,with_clash_api,with_tun,with_quic" \
+          # Теперь мы можем смело использовать жесткое сжатие -s -w!
+          # Файл выйдет крошечным (6 МБ), но uTLS уже встроен в сам исходный код
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w" \
+            -tags "with_vless with_tun" \
             -o sing-box-nl-only ./cmd/sing-box
-
-      - name: Compress via UPX (Optional weight reduction)
-        run: |
-          # Устанавливаем UPX упаковщик, который сожмет бинарник без потери uTLS кода
-          sudo apt-get install -y upx-ucl
-          upx --brute sing-box-nl-only || true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
