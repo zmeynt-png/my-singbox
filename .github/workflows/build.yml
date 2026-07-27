@@ -23,12 +23,12 @@ jobs:
 
       - name: Build Ultra Lite Binary
         run: |
-          # Собираем строго из корня, используя единственный официальный тег with_utls
-          # Флаг -o гарантирует, что файл сохранится в корне под нужным именем
+          # Собираем напрямую через главный файл main.go в корне репозитория
+          # Связка тегов with_utls и with_clash_api железно заставит Go вшить отпечатки Reality
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -tags "with_utls" \
-            -o sing-box-nl-only ./cmd/sing-box
+            -tags "with_utls with_clash_api with_quic" \
+            -o sing-box-nl-only main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
