@@ -10,21 +10,18 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Download sing-box release source
+      - name: Clone sing-box source
         run: |
-          # Скачиваем официальный исходный код последнего стабильного релиза
-          curl -L https://github.com -o source.tar.gz
-          tar -xzf source.tar.gz
-          # Переносим файлы релиза в корень для сборки
-          mv sing-box-1.10.1/* .
-
-      - name: Build Ultra Lite Binary
-        run: |
+          # Скачиваем строго одну ветку последней стабильной версии БЕЗ истории изменений
+          git clone --depth 1 --branch main https://github.com source
+          cd source
+          
+          # Запускаем компиляцию ультра-легкого бинарника для Нидерландов
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
             -ldflags="-s -w" \
             -tags "with_outbound_vless with_inbound_tun" \
-            -o sing-box-nl-only ./cmd/sing-box
+            -o ../sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
