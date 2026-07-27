@@ -1,0 +1,25 @@
+name: Build Ultra-Micro Sing-Box (NL Only)
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: Build Ultra Lite Binary
+        run: |
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w" \
+            -tags "with_outbound_vless with_inbound_tun" \
+            -o sing-box-nl-only ://github.com
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-ultra-lite
+          path: sing-box-nl-only
+
