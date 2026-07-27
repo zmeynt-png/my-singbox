@@ -17,16 +17,17 @@ jobs:
           go-version: '1.22'
           cache: false
 
+      - name: Download Go Modules
+        run: |
+          go mod download
+
       - name: Build Ultra Lite Binary
         run: |
-          # Принудительно инициализируем и скачиваем все подмодули
-          go mod download
-          
-          # Компилируем строго из корня, передавая правильные пробельные теги
-          # Тег with_clash_api потянет за собой uTLS, а сжатие -s -w уменьшит вес
+          # Возвращаем жесткое сжатие -s -w (бинарник похудеет до 6 МБ)
+          # Тег with_gvisor — это секрет релизных сборок, он намертво зашьет uTLS и VLESS
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -tags "with_vless with_utls with_clash_api with_tun" \
+            -tags "with_gvisor with_quic with_dhcp with_vless with_utls with_tun" \
             -o sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
