@@ -1,4 +1,4 @@
-name: Build Ultra-Micro Sing-Box (VLESS Only)
+name: Build Raw Sing-Box v1.13.13 (VLESS Only)
 on: [workflow_dispatch]
 
 jobs:
@@ -10,25 +10,26 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Download source
+      - name: Download Sing-Box v1.13.13
         uses: actions/checkout@v4
         with:
           repository: 'SagerNet/sing-box'
+          ref: 'v1.13.13' # Фиксируем строго нужную вам версию
           path: 'source'
 
       - name: Build sing-box
         run: |
-          cd source/cmd/sing-box
-          # Собираем строго из папки самого бинарника, принудительно обнуляя CGO и отладку
+          cd source
           CGO_ENABLED=0 GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
             -buildvcs=false \
-            -ldflags="-s -w" \
+            -ldflags="-s -w -X ://github.com" \
             -tags "with_vless with_utls with_tun without_dns without_clash_api without_quic without_shadowsocks without_vmess without_gvisor" \
-            -o ../../../sing-box-vless-only
+            -o ../sing-box-vless-1.13.13 ./cmd/sing-box
 
-      - name: Upload Artifact
+      - name: Upload Raw Binary (No Zip)
         uses: actions/upload-artifact@v4
         with:
-          name: sing-box-mipsle-vless
-          path: sing-box-vless-only
+          name: raw-sing-box-binary
+          path: sing-box-vless-1.13.13
+          compression-level: 0 # Отключаем архивацию на стороне GitHub
