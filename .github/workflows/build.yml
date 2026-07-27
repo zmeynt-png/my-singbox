@@ -10,17 +10,19 @@ jobs:
         with:
           go-version: 'stable'
 
-      - name: Clone sing-box source
+      - name: Clone and Build sing-box
         run: |
-          # Скачиваем строго одну ветку последней стабильной версии БЕЗ истории изменений
+          # 1. Клонируем официальный репозиторий SagerNet/sing-box
           git clone --depth 1 --branch main https://github.com source
+          
+          # 2. Переходим в папку с исходным кодом
           cd source
           
-          # Запускаем компиляцию ультра-легкого бинарника для Нидерландов
+          # 3. Запускаем компиляцию с вашими параметрами для архитектуры mipsle
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -trimpath \
             -ldflags="-s -w" \
-            -tags "with_outbound_vless with_inbound_tun" \
+            -tags "with_vless with_tun" \
             -o ../sing-box-nl-only ./cmd/sing-box
 
       - name: Upload Artifact
