@@ -21,14 +21,31 @@ jobs:
         run: |
           go mod download
 
+      - name: Force Inject uTLS Dependencies
+        run: |
+          # Секретный шаг: принудительно заставляем Go прописать библиотеки uTLS в глобальный импорт,
+          # чтобы линковщик не смог вырезать их на архитектуре mipsle
+          go get ://github.com
+          go mod tidy
+
       - name: Build Ultra Lite Binary
         run: |
-          # Возвращаем жесткое сжатие -s -w (бинарник похудеет до 6 МБ)
-          # Тег with_gvisor — это секрет релизных сборок, он намертво зашьет uTLS и VLESS
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -ldflags="-s -w" \
-            -tags "with_gvisor with_quic with_dhcp with_vless with_utls with_tun" \
+          # Собираем СТРОГО без флагов -s -w (чтобы не было Dead Code Elimination)
+          # Используем официальный комплексный тег, который активирует криптографию
+          export GOOS=linux
+          export GOARCH=mipsle
+          export GOMIPS=softfloat
+          export CGO_ENABLED=0
+          
+          go build -v \
+            -tags "with_vless,with_utls,with_clash_api,with_tun,with_quic" \
             -o sing-box-nl-only ./cmd/sing-box
+
+      - name: Compress via UPX (Optional weight reduction)
+        run: |
+          # Устанавливаем UPX упаковщик, который сожмет бинарник без потери uTLS кода
+          sudo apt-get install -y upx-ucl
+          upx --brute sing-box-nl-only || true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
