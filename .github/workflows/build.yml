@@ -1,39 +1,51 @@
-name: Auto-Build Ultralight OpenWrt
+name: Final Build OpenWrt 15.05.1
 
 on:
-  workflow_dispatch: # Запуск кнопкой из интерфейса
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04 # Используем прошлую стабильную версию Ubuntu для совместимости
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Prepare System and Dependencies
+    - name: Install Python2 and Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential gawk git libncurses5-dev libssl-dev gettext unzip zlib1g-dev file wget python3
+        # Устанавливаем python2, так как старый Image Builder не умеет работать с python3
+        sudo apt-get install -y build-essential gawk git libncurses5-dev libssl-dev gettext unzip zlib1g-dev file wget python2
+        # Делаем python2 основным для этого процесса
+        sudo ln -sf /usr/bin/python2 /usr/usr/bin/python || true
+        sudo ln -sf /usr/bin/python2 /usr/bin/python
 
-    - name: Auto-Fetch Image Builder and Compile
+    - name: Auto-Fetch Image Builder 15.05.1
       run: |
-        # 1. Автоматический поиск и скачивание стабильного конструктора 18.06.9
+        # Скачиваем оригинальный конструктор Chaos Calmer
         URL="https://openwrt.org"
-        wget --no-check-certificate -qO- "$URL" | tar -xJ
-        cd openwrt-imagebuilder-18.06.9-ar71xx-generic.Linux-x86_64
+        wget --no-check-certificate -qO- "$URL" | tar -xj
+        mv openwrt-imagebuilder-15.05.1-ar71xx-generic.Linux-x86_64 imagebuilder
 
-        # 2. Подмена репозиториев на архивные сервера, чтобы пакеты скачивались без ошибок
+    - name: Fix Repositories and Environments
+      run: |
+        cd imagebuilder
+        # Перенаправляем все ссылки на архивный сервер
         sed -i 's/downloads.openwrt.org/archive.openwrt.org/g' repositories.conf
 
-        # 3. Автоматическая сборка «голого» бинарника для DIR615E4
+    - name: Build Ultralight Firmware
+      run: |
+        cd imagebuilder
+        # Собираем точный профиль и жестко вырезаем LuCI, IPv6 и лишние утилиты
         make image PROFILE=DIR615E4 PACKAGES="-luci -luci-proto-ipv6 -luci-app-firewall -libiwinfo-lua -lua -luci-theme-bootstrap -luci-mod-admin-full -odhcpd-ipv6only -odhcp6c -ip6tables -libip6tc -kmod-ipv6 -kmod-ipt-ipv6"
 
-        # 4. Сбор результатов во временную папку
-        mkdir -p ../output
-        cp bin/targets/ar71xx/generic/*-dir-615-e4-squashfs-factory.bin ../output/vmlinuz
-
     - name: Export Ready Firmware
+      run: |
+        mkdir -p output
+        # Забираем собранный factory.bin и сразу переименовываем в vmlinuz для MobaXterm
+        cp imagebuilder/bin/ar71xx/openwrt-15.05.1-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/vmlinuz
+
+    - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: dir-615-e4-vmlinuz
