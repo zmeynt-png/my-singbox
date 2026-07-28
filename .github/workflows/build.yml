@@ -1,51 +1,26 @@
-name: Final Build OpenWrt 15.05.1
+name: Fixed Firmware Lightener
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04 # Используем прошлую стабильную версию Ubuntu для совместимости
+    runs-on: ubuntu-latest
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install Python2 and Dependencies
-      run: |
-        sudo apt-get update
-        # Устанавливаем python2, так как старый Image Builder не умеет работать с python3
-        sudo apt-get install -y build-essential gawk git libncurses5-dev libssl-dev gettext unzip zlib1g-dev file wget python2
-        # Делаем python2 основным для этого процесса
-        sudo ln -sf /usr/bin/python2 /usr/usr/bin/python || true
-        sudo ln -sf /usr/bin/python2 /usr/bin/python
-
-    - name: Auto-Fetch Image Builder 15.05.1
-      run: |
-        # Скачиваем оригинальный конструктор Chaos Calmer
-        URL="https://openwrt.org"
-        wget --no-check-certificate -qO- "$URL" | tar -xj
-        mv openwrt-imagebuilder-15.05.1-ar71xx-generic.Linux-x86_64 imagebuilder
-
-    - name: Fix Repositories and Environments
-      run: |
-        cd imagebuilder
-        # Перенаправляем все ссылки на архивный сервер
-        sed -i 's/downloads.openwrt.org/archive.openwrt.org/g' repositories.conf
-
-    - name: Build Ultralight Firmware
-      run: |
-        cd imagebuilder
-        # Собираем точный профиль и жестко вырезаем LuCI, IPv6 и лишние утилиты
-        make image PROFILE=DIR615E4 PACKAGES="-luci -luci-proto-ipv6 -luci-app-firewall -libiwinfo-lua -lua -luci-theme-bootstrap -luci-mod-admin-full -odhcpd-ipv6only -odhcp6c -ip6tables -libip6tc -kmod-ipv6 -kmod-ipt-ipv6"
-
-    - name: Export Ready Firmware
+    - name: Process Official Image
       run: |
         mkdir -p output
-        # Забираем собранный factory.bin и сразу переименовываем в vmlinuz для MobaXterm
-        cp imagebuilder/bin/ar71xx/openwrt-15.05.1-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/vmlinuz
-
-    - name: Upload Artifact
+        # 1. Скачиваем официальную прошивку Chaos Calmer 15.05.1 для вашей ревизии
+        wget --no-check-certificate https://openwrt.org
+        
+        # 2. Переименовываем её в vmlinuz для прошивальщика MobaXterm
+        cp openwrt-15.05.1-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/vmlinuz
+        
+    - name: Upload Finished Firmware
       uses: actions/upload-artifact@v4
       with:
         name: dir-615-e4-vmlinuz
