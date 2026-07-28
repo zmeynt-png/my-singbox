@@ -1,30 +1,43 @@
-name: Build Ultra-Lite WireGuard-Go
-on: [workflow_dispatch]
+name: Build Ultralight OpenWrt for DIR-615 E4
+
+on:
+  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout WireGuard Source
-        uses: actions/checkout@v4
-        with:
-          repository: 'WireGuard/wireguard-go'
-          ref: 'master'
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22'
-          cache: false
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev gawk git subversion libssl-dev gettext unzip zlib1g-dev file python3
 
-      - name: Build MIPSLE Binary
-        run: |
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -ldflags="-s -w" \
-            -o wg-go-nl
+    - name: Download OpenWrt Image Builder
+      run: |
+        wget https://openwrt.org
+        tar -xf openwrt-imagebuilder-18.06.9-ar71xx-generic.Linux-x86_64.tar.xz
+        mv openwrt-imagebuilder-18.06.9-ar71xx-generic.Linux-x86_64 imagebuilder
 
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: wireguard-go-binary
-          path: wg-go-nl
+    - name: Build Custom Firmware
+      run: |
+        cd imagebuilder
+        # Собираем профиль DIR615E4 и вырезаем LuCI, IPv6 и сопутствующий софт
+        make image PROFILE=DIR615E4 PACKAGES="-luci -luci-proto-ipv6 -luci-app-firewall -libiwinfo-lua -lua -luci-theme-bootstrap -luci-mod-admin-full -odhcpd-ipv6only -odhcp6c -ip6tables -libip6tc -kmod-ipv6 -kmod-ipt-ipv6"
+
+    - name: Copy and Rename Artifacts
+      run: |
+        mkdir output
+        # Находим заводской бинарник, копируем его под именем vmlinuz для вашего загрузчика
+        cp imagebuilder/bin/targets/ar71xx/generic/openwrt-18.06.9-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/vmlinuz
+        # Сохраняем оригинал на всякий случай
+        cp imagebuilder/bin/targets/ar71xx/generic/openwrt-18.06.9-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/openwrt-dir615e4-factory.bin
+
+    - name: Upload Firmware to Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ultra-light-firmware
+        path: output/
