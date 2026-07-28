@@ -1,43 +1,40 @@
-name: Build Ultralight OpenWrt for DIR-615 E4
+name: Auto-Build Ultralight OpenWrt
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой
+  workflow_dispatch: # Запуск кнопкой из интерфейса
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Prepare System and Dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential libncurses5-dev libncursesw5-dev gawk git subversion libssl-dev gettext unzip zlib1g-dev file python3
+        sudo apt-get install -y build-essential gawk git libncurses5-dev libssl-dev gettext unzip zlib1g-dev file wget python3
 
-    - name: Download OpenWrt Image Builder
+    - name: Auto-Fetch Image Builder and Compile
       run: |
-        wget https://openwrt.org
-        tar -xf openwrt-imagebuilder-18.06.9-ar71xx-generic.Linux-x86_64.tar.xz
-        mv openwrt-imagebuilder-18.06.9-ar71xx-generic.Linux-x86_64 imagebuilder
+        # 1. Автоматический поиск и скачивание стабильного конструктора 18.06.9
+        URL="https://openwrt.org"
+        wget --no-check-certificate -qO- "$URL" | tar -xJ
+        cd openwrt-imagebuilder-18.06.9-ar71xx-generic.Linux-x86_64
 
-    - name: Build Custom Firmware
-      run: |
-        cd imagebuilder
-        # Собираем профиль DIR615E4 и вырезаем LuCI, IPv6 и сопутствующий софт
+        # 2. Подмена репозиториев на архивные сервера, чтобы пакеты скачивались без ошибок
+        sed -i 's/downloads.openwrt.org/archive.openwrt.org/g' repositories.conf
+
+        # 3. Автоматическая сборка «голого» бинарника для DIR615E4
         make image PROFILE=DIR615E4 PACKAGES="-luci -luci-proto-ipv6 -luci-app-firewall -libiwinfo-lua -lua -luci-theme-bootstrap -luci-mod-admin-full -odhcpd-ipv6only -odhcp6c -ip6tables -libip6tc -kmod-ipv6 -kmod-ipt-ipv6"
 
-    - name: Copy and Rename Artifacts
-      run: |
-        mkdir output
-        # Находим заводской бинарник, копируем его под именем vmlinuz для вашего загрузчика
-        cp imagebuilder/bin/targets/ar71xx/generic/openwrt-18.06.9-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/vmlinuz
-        # Сохраняем оригинал на всякий случай
-        cp imagebuilder/bin/targets/ar71xx/generic/openwrt-18.06.9-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/openwrt-dir615e4-factory.bin
+        # 4. Сбор результатов во временную папку
+        mkdir -p ../output
+        cp bin/targets/ar71xx/generic/*-dir-615-e4-squashfs-factory.bin ../output/vmlinuz
 
-    - name: Upload Firmware to Artifacts
+    - name: Export Ready Firmware
       uses: actions/upload-artifact@v4
       with:
-        name: ultra-light-firmware
+        name: dir-615-e4-vmlinuz
         path: output/
