@@ -1,4 +1,4 @@
-name: Stable Auto-Search Go Build
+name: Stable Direct Go Build
 
 on:
   workflow_dispatch:
@@ -7,45 +7,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout SpoofDPI Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'xvzc/spoofdpi' # Чистый официальный адрес проекта SpoofDPI
+          ref: 'main'
+
       - name: Set up Go (Свежая стабильная версия)
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
           cache: false
 
-      - name: Git Auto-Search & Clone
+      - name: Compile MIPS Binary Directly
         run: |
-          # Автоматический поиск самого популярного Go-проекта по обходу DPI
-          SEARCH_URL=$(curl -s "https://github.com" \
-            | jq -r '.items[0].clone_url')
-          
-          echo "Выбран проект: $SEARCH_URL"
-          git clone --depth=1 "$SEARCH_URL" workspace_src
-
-      - name: Auto-Locate and Compile Binary
-        run: |
-          cd workspace_src
-          
-          # Автоматический поиск точки входа (go.mod)
-          MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
-          if [ ! -z "$MOD_PATH" ]; then
-            cd "$MOD_PATH"
-          fi
-          
-          # Наводим порядок в модулях перед стартом
-          go mod tidy 2>/dev/null || true
-          
-          # Компилируем под твой Ralink (mipsle + softfloat)
-          # Убран флаг extldflags, вызывавший ошибку exit 5. Флаги -s -w вырезают отладку для экономии места
+          # Компилируем бинарник из точных исходников проекта под твой Ralink (mipsle + softfloat)
+          # Флаги -s -w вырезают мусор для жесткой экономии памяти Асуса
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -o anti-dpi-mips
-
-          # Переносим готовый файл в корень для отправки
-          mv anti-dpi-mips $GITHUB_WORKSPACE/
+            -o spoofdpi-mips
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: anti-dpi-binary
-          path: anti-dpi-mips
+          name: spoofdpi-binary
+          path: spoofdpi-mips
