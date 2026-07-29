@@ -1,4 +1,4 @@
-name: Build Archival Light Anti-DPI (OpenWrt 15.05)
+name: Build Static ByeDPI-Go (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
@@ -7,33 +7,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go (Стабильная совместимая версия)
+      - name: Checkout ByeDPI-Go Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'xvzc/byedpi-go' # Официальный живой репозиторий ByeDPI на Go
+          ref: 'main'
+
+      - name: Set up Go (Твоя проверенная связка)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.21' # Фиксируем старую версию Go, идеальную для MIPS ядра 3.18
+          go-version: '1.22' # Возвращаем стабильный Go под твою uClibc
           cache: false
 
-      - name: Clone Legacy SpoofDPI Code
+      - name: Build Static MIPS Binary
         run: |
-          # Клонируем старую архивную версию SpoofDPI (релиз v0.1.0), которая гарантированно поддерживает MIPS
-          git clone --branch v0.1.0 --single-branch https://github.com src_legacy
-          
-      - name: Compile Legacy MIPS Binary
-        run: |
-          cd src_legacy
-          
-          # Наводим порядок в архивных модулях
-          go mod tidy
-          
-          # Собираем легкий автономный файл без современных системных вызовов
+          # Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
+          # Флаги -s -w чистят вес, как в твоем примере с WireGuard
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -o spoofdpi-legacy
-
-          mv spoofdpi-legacy $GITHUB_WORKSPACE/
+            -o byedpi-mips
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: spoofdpi-legacy-binary
-          path: spoofdpi-legacy
+          name: byedpi-binary
+          path: byedpi-mips
