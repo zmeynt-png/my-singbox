@@ -13,26 +13,40 @@ jobs:
           go-version: 'stable'
           cache: false
 
-      - name: Auto-Download Source Code
+      - name: Auto-Search and Download Source Code via GitHub CLI
+        env:
+          GH_TOKEN: ${{ github.token }} # Прокидываем системный токен авторизации
         run: |
-          # Автоматически качаем официальные файлы SpoofDPI напрямую
-          git clone --depth=1 https://github.com src_code
+          echo "--------------------------------------------------------"
+          echo "Гитхаб автоматически ищет лучший живой проект SpoofDPI..."
+          echo "--------------------------------------------------------"
+          
+          # Находим точное имя самого звездного репозитория по ключевому слову
+          TARGET_REPO=$(gh repo list --search "spoofdpi language:go" --sort stars --limit 1 --json fullName -q '.[0].fullName')
+          echo "Автоматически найден рабочий проект: $TARGET_REPO"
+          
+          # Скачиваем архив с исходным кодом напрямую, минуя git clone и ошибку 128
+          gh repo archive $TARGET_REPO --format_zip src_code.zip
+          unzip src_code.zip -d src_unpacked
+          
+          # Переносим распакованные файлы в единую рабочую папку
+          mv src_unpacked/* workspace_src
 
       - name: Auto-Locate Main and Compile MIPS Binary
         run: |
-          cd src_code
+          cd workspace_src
           
-          # Робот сам сканирует каталоги и ищет, в какой именно папке авторы спрятали main.go
+          # Робот сам сканирует каталоги и находит, в какой именно папке авторы спрятали main.go
           MAIN_PATH=$(find . -name "main.go" -exec dirname {} \; | head -n 1)
           cd "$MAIN_PATH"
           
-          echo "Гитхаб автоматически нашел точку входа и запускает сборку в: $(pwd)"
+          echo "Сборка запускается в папке: $(pwd)"
           
           # Наводим порядок в модулях перед стартом
           go mod tidy 2>/dev/null || true
           
           # Компилируем под твой Ralink (mipsle + softfloat)
-          # Флаги -s -w чистят отладочный мусор для жесткой экономии памяти Асуса
+          # Флаги -s -w вырезают отладку для жесткой экономии памяти Асуса
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
             -o spoofdpi-mips
