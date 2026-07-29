@@ -1,4 +1,4 @@
-name: Pure Auto-Search Static Go Build
+name: Ultimate Auto-Search Static Go Build
 
 on:
   workflow_dispatch:
@@ -7,45 +7,58 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Git Search & Auto-Clone
-        run: |
-          # 1. Гитхаб сам ищет самый популярный проект обхода DPI на языке Go
-          SEARCH_URL=$(curl -s "https://github.com" \
-            | jq -r '.items[0].clone_url')
-          
-          echo "Гитхаб автоматически нашел и выбрал проект: $SEARCH_URL"
-          
-          # 2. Клонируем найденный роботом репозиторий
-          git clone --depth=1 "$SEARCH_URL" workspace_src
-
-      - name: Set up Go (твоя проверенная связка)
+      - name: Set up Dynamic Go (Самая свежая стабильная версия)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 'stable' # Робот сам возьмет новейший Go, исключая exit 5
           cache: false
 
-      - name: Auto-Locate and Compile Static Binary
+      - name: Git Search, Auto-Clone & Fail-Proof Compile
         run: |
-          cd workspace_src
+          # 1. Запрашиваем топ-3 самых популярных Go-проектов для обхода DPI
+          curl -s "https://github.com" > search.json
           
-          # 3. Робот сам сканирует папки и ищет, где лежит инициализация go.mod
-          MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
-          if [ -not -z "$MOD_PATH" ]; then
-            cd "$MOD_PATH"
-          fi
-          
-          echo "Запуск компиляции в папка: $(pwd)"
-          
-          # 4. Компилируем статиком со вшитыми библиотеками (mipsle + softfloat)
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -ldflags="-s -w -extldflags '-static'" \
-            -o dynamic-anti-dpi
+          # Запускаем цикл перебора проектов на случай, если какой-то один не соберется
+          for i in 0 1 2; do
+            CLONE_URL=$(jq -r ".items[$i].clone_url" search.json)
+            if [ "$CLONE_URL" = "null" ] || [ -z "$CLONE_URL" ]; then continue; fi
             
-          # Переносим готовый файл в корень для загрузки
-          mv dynamic-anti-dpi $GITHUB_WORKSPACE/
+            echo "--------------------------------------------------------"
+            echo "Попытка сборки проекта №$i: $CLONE_URL"
+            echo "--------------------------------------------------------"
+            
+            rm -rf workspace_src
+            git clone --depth=1 "$CLONE_URL" workspace_src || continue
+            
+            cd workspace_src
+            
+            # 2. Умный поиск папки с файлом инициализации go.mod
+            MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
+            if [ -not -z "$MOD_PATH" ]; then
+              cd "$MOD_PATH"
+            fi
+            
+            # Обновляем зависимости проекта под свежий Go
+            go mod tidy 2>/dev/null || true
+            
+            # 3. Пытаемся скомпилировать статиком под твой mipsle/softfloat
+            if GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+              -ldflags="-s -w -extldflags '-static'" \
+              -o $GITHUB_WORKSPACE/anti-dpi-static; then
+              
+              echo "ПОБЕДА! Проект успешно скомпилирован."
+              exit 0
+            else
+              echo "Этот проект выдал ошибку, переходим к следующему..."
+              cd $GITHUB_WORKSPACE
+            fi
+          done
+          
+          echo "Ни один из топ-3 проектов не смог собраться."
+          exit 1
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: compiled-anti-dpi
-          path: dynamic-anti-dpi
+          path: anti-dpi-static
