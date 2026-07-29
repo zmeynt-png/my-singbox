@@ -10,7 +10,7 @@ jobs:
       - name: Set up Go (Свежая стабильная версия)
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable' # Робот автоматически ставит новейший стабильный Go
+          go-version: 'stable'
           cache: false
 
       - name: Auto-Install & Compile MIPS Binary
@@ -19,16 +19,15 @@ jobs:
           echo "Гитхаб автоматически качает и компилирует пакет SpoofDPI..."
           echo "--------------------------------------------------------"
           
-          # Запускаем официальную команду автоустановки Go-пакета. 
-          # Мы указываем точную точку входа, которую Гитхаб скомпилирует под твой Ralink (mipsle + softfloat)
-          # Флаги -s -w чистят отладочный мусор для экономии памяти Асуса
+          # Указан точный актуальный корень репозитория для go install
+          # Флаги -s -w вырезают отладку для жесткой экономии памяти Асуса
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go install -v \
             -ldflags="-s -w" \
             ://github.com
 
-          # После go install готовый файл всегда падает в системную папку ~/go/bin/linux_mipsle/
-          # Переносим его в корень для отправки в артефакты
-          mv ~/go/bin/linux_mipsle/spoof-dpi $GITHUB_WORKSPACE/anti-dpi-mips
+          # После go install бинарник с именем 'spoofdpi' падает в системный каталог
+          # Переносим его в корень воркфлоу для выгрузки в артефакты
+          mv ~/go/bin/linux_mipsle/spoofdpi $GITHUB_WORKSPACE/anti-dpi-mips
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
