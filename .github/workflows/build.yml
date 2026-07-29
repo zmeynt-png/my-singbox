@@ -1,4 +1,4 @@
-name: Build Static ByeDPI-Go (OpenWrt 15.05)
+name: Pure Auto-Search Static Go Build
 
 on:
   workflow_dispatch:
@@ -7,11 +7,16 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout NxtFilter Source
-        uses: actions/checkout@v4
-        with:
-          repository: 'bepass-org/nxtfilter' # Официальный живой аналог ByeDPI на Go
-          ref: 'main'
+      - name: Git Search & Auto-Clone
+        run: |
+          # 1. Гитхаб сам ищет самый популярный проект обхода DPI на языке Go
+          SEARCH_URL=$(curl -s "https://github.com" \
+            | jq -r '.items[0].clone_url')
+          
+          echo "Гитхаб автоматически нашел и выбрал проект: $SEARCH_URL"
+          
+          # 2. Клонируем найденный роботом репозиторий
+          git clone --depth=1 "$SEARCH_URL" workspace_src
 
       - name: Set up Go (твоя проверенная связка)
         uses: actions/setup-go@v5
@@ -19,16 +24,28 @@ jobs:
           go-version: '1.22'
           cache: false
 
-      - name: Build Static MIPS Binary
+      - name: Auto-Locate and Compile Static Binary
         run: |
-          # Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
-          # Флаги -s -w чистят вес, а -extldflags "-static" зашивают uClibc внутрь файла намертво
+          cd workspace_src
+          
+          # 3. Робот сам сканирует папки и ищет, где лежит инициализация go.mod
+          MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
+          if [ -not -z "$MOD_PATH" ]; then
+            cd "$MOD_PATH"
+          fi
+          
+          echo "Запуск компиляции в папка: $(pwd)"
+          
+          # 4. Компилируем статиком со вшитыми библиотеками (mipsle + softfloat)
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -extldflags '-static'" \
-            -o byedpi-uclibc-static main.go
+            -o dynamic-anti-dpi
+            
+          # Переносим готовый файл в корень для загрузки
+          mv dynamic-anti-dpi $GITHUB_WORKSPACE/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: byedpi-binary
-          path: byedpi-uclibc-static
+          name: compiled-anti-dpi
+          path: dynamic-anti-dpi
