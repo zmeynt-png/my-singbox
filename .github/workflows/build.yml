@@ -1,27 +1,10 @@
-name: Fixed Firmware Lightener
-
-on:
-  workflow_dispatch:
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-
-    - name: Process Official Image
-      run: |
-        mkdir -p output
-        # Скачиваем файл с полным игнорированием проверок SSL-сертификатов
-        wget --no-check-certificate --tries=3 https://openwrt.org
-        
-        # Переименовываем скачанный файл в vmlinuz для MobaXterm
-        cp openwrt-15.05.1-ar71xx-generic-dir-615-e4-squashfs-factory.bin output/vmlinuz
-        
-    - name: Upload Finished Firmware
-      uses: actions/upload-artifact@v4
-      with:
-        name: dir-615-e4-vmlinuz
-        path: output/
+      - uses: actions/checkout@v4
+      - name: Install Build Tools
+        run: sudo apt-get update && sudo apt-get install build-essential git libncurses5-dev gawk zlib1g-dev
+      - name: Download OpenWrt 15.05 SDK
+        run: wget https://openwrt.org
+      # Далее следуют команды компиляции zapret с использованием этого SDK
