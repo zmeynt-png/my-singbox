@@ -1,4 +1,4 @@
-name: Build Static Go-ByeDPI (OpenWrt 15.05)
+name: Pure Auto-Search Static Go Build
 
 on:
   workflow_dispatch:
@@ -7,31 +7,49 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Go-ByeDPI Source
-        uses: actions/checkout@v4
-        with:
-          repository: 'ulwanski/go-byedpi' # Проверенный рабочий порт ByeDPI на Go
-          ref: 'main'
-
-      - name: Set up Dynamic Go (Новейшая стабильная версия)
+      - name: Set up Go (Новейшая стабильная версия из облака)
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable' # Авто-выбор последней версии Go
+          go-version: 'stable' # Робот автоматически возьмет самый свежий Go, убирая exit 5
           cache: false
 
-      - name: Build Static MIPS Binary
+      - name: Git Auto-Search & Clone
         run: |
-          # Обновляем и вычищаем модули проекта перед сборкой
-          go mod tidy
+          # 1. Гитхаб через API ищет самый популярный мировой Go-проект по тегам обхода DPI
+          SEARCH_URL=$(curl -s "https://github.com" \
+            | jq -r '.items[0].clone_url')
           
-          # Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
-          # Флаги -extldflags "-static" намертво зашивают все вызовы uClibc внутрь бинарника
+          echo "Гитхаб автоматически нашел и выбрал проект: $SEARCH_URL"
+          
+          # 2. Клонируем то, что нашел поисковик Гитхаба
+          git clone --depth=1 "$SEARCH_URL" workspace_src
+
+      - name: Auto-Locate and Compile Static Binary
+        run: |
+          cd workspace_src
+          
+          # 3. Робот сам сканирует каталоги проекта и находит точку входа go.mod
+          MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
+          if [ ! -z "$MOD_PATH" ]; then
+            cd "$MOD_PATH"
+          fi
+          
+          echo "Запуск компиляции в папке: $(pwd)"
+          
+          # Автоматически подчищаем модули под свежую версию языка
+          go mod tidy 2>/dev/null || true
+          
+          # 4. Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
+          # Флаги -extldflags "-static" зашивают uClibc внутрь файла намертво
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -extldflags '-static'" \
-            -o byedpi-static main.go
+            -o dynamic-anti-dpi
+            
+          # Переносим готовый файл в корень воркфлоу для выгрузки
+          mv dynamic-anti-dpi $GITHUB_WORKSPACE/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: byedpi-uclibc-static
-          path: byedpi-static
+          name: compiled-anti-dpi
+          path: dynamic-anti-dpi
