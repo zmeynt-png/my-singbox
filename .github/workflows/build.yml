@@ -1,4 +1,4 @@
-name: Pure Auto-Search Static Go Build
+name: Ultimate Auto-Install Go Build
 
 on:
   workflow_dispatch:
@@ -7,45 +7,36 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Auto-Discover and Clone Repo
-        run: |
-          # Робот сам запрашивает у GitHub API точный адрес репозитория spoofdpi
-          REPO_URL=$(curl -s "https://github.com" | jq -r '.clone_url')
-          
-          echo "Гитхаб автоматически нашел проект: $REPO_URL"
-          
-          # Клонируем то, что нашел сам Гитхаб
-          git clone --depth=1 "$REPO_URL" workspace_src
-
-      - name: Set up Go (Твоя проверенная связка)
+      - name: Set up Go (Свежая стабильная версия)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: 'stable' # Робот автоматически развернет свежий стабильный Go
           cache: false
 
-      - name: Auto-Locate and Compile Binary
+      - name: Auto-Download and Compile Static Binary via Go
         run: |
-          cd workspace_src
+          # Создаем временную рабочую папку
+          mkdir build_dir && cd build_dir
+          go mod init auto-build
           
-          # Робот сам сканирует каталоги и ищет, где лежит файл инициализации go.mod
-          MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
-          if [ ! -z "$MOD_PATH" ]; then
-            cd "$MOD_PATH"
-          fi
+          echo "--------------------------------------------------------"
+          echo "Гитхаб автоматически запрашивает и скачивает SpoofDPI..."
+          echo "--------------------------------------------------------"
           
-          echo "Запуск компиляции в папке: $(pwd)"
+          # Заставляем Go самостоятельно найти и выкачать последнюю версию SpoofDPI
+          go get -v ://github.com
           
-          # Собираем монолит под твой процессор Ralink (mipsle + softfloat)
-          # Флаги -s -w вырезают мусор (как в твоем примере с WireGuard)
+          # Компилируем напрямую из подгруженного Go-модуля под твой Ralink (mipsle + softfloat)
+          # Флаги -s -w вырезают отладку, экономя оперативную память Асуса
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -o dynamic-anti-dpi
-            
+            -o anti-dpi-mips ://github.com
+
           # Переносим готовый файл в корень для отправки в артефакты
-          mv dynamic-anti-dpi $GITHUB_WORKSPACE/
+          mv anti-dpi-mips $GITHUB_WORKSPACE/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: compiled-anti-dpi
-          path: dynamic-anti-dpi
+          path: anti-dpi-mips
