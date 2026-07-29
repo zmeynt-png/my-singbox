@@ -1,7 +1,7 @@
 name: Build Zapret for uClibc (OpenWrt 15.05)
 
 on:
-  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой
+  workflow_dispatch:
 
 jobs:
   build:
@@ -17,7 +17,6 @@ jobs:
 
       - name: Download and Unpack OpenWrt 15.05 SDK
         run: |
-          # Качаем ТОЧНОЕ архивное SDK для uClibc под твой процессор Ralink RT3052
           wget https://openwrt.org
           tar -xjf OpenWrt-SDK-15.05-ramips-rt305x_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2
           mv OpenWrt-SDK-15.05-ramips-rt305x_* sdk
@@ -26,19 +25,19 @@ jobs:
         run: |
           git clone --depth=1 https://github.com zapret_src
 
-      - name: Compile Static nfqws
+      - name: Compile Static nfqws via Makefile
         run: |
-          # Прописываем пути к старому компилятору из SDK
+          # Настраиваем окружение компилятора OpenWrt
           export PATH=$GITHUB_WORKSPACE/sdk/staging_dir/toolchain-mips_24kec+dsp_gcc-4.8-linaro_uClibc-0.9.33.2/bin:$PATH
           export STAGING_DIR=$GITHUB_WORKSPACE/sdk/staging_dir
           
           cd zapret_src/sources
           
-          # Запускаем компиляцию с флагами статической сборки (статиком) под архитектуру 24kec
-          mips-openwrt-linux-uclibc-gcc -O3 -flto -march=24kec -static nfqws/*.c -o nfqws_static -lpthread
+          # Передаем оригинальному Makefile флаги компилятора uClibc и принудительную статическую сборку
+          make CC=mips-openwrt-linux-uclibc-gcc CFLAGS="-O3 -march=24kec" LDFLAGS="-static" nfqws
 
       - name: Upload Compiled Binary
         uses: actions/upload-artifact@v4
         with:
           name: nfqws-uClibc-static
-          path: zapret_src/sources/nfqws_static
+          path: zapret_src/sources/nfqws
