@@ -1,48 +1,37 @@
-name: Build Static NFQWS (OpenWrt 15.05)
+name: Build Static TPWS-GO (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: Checkout Zapret Source
         uses: actions/checkout@v4
+        with:
+          repository: 'bol-van/zapret'
+          ref: 'master'
 
-      - name: Install Base Build Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential git wget bzip2
+      - name: Set up Go (по твоему проверенному шаблону)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: false
 
-      - name: Download and Unpack OpenWrt 15.05 SDK
+      - name: Build MIPSLE Static Binary
         run: |
-          # Скачиваем официальный инструментарий (Toolchain) для старой uClibc
-          wget https://openwrt.org
-          tar -xjf OpenWrt-SDK-15.05-ramips-rt305x_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2
-          mv OpenWrt-SDK-15.05-ramips-rt305x_* sdk
-
-      - name: Clone Zapret Source Code
-        run: |
-          git clone --depth=1 https://github.com zapret_src
-
-      - name: Direct Build MIPS Binary (No Makefile)
-        run: |
-          # Добавляем компилятор из SDK в системный путь
-          export PATH=$GITHUB_WORKSPACE/sdk/staging_dir/toolchain-mips_24kec+dsp_gcc-4.8-linaro_uClibc-0.9.33.2/bin:$PATH
-          export STAGING_DIR=$GITHUB_WORKSPACE/sdk/staging_dir
+          # Переходим в папку с Go-версией прокси из состава Zapret
+          cd tpws-go
           
-          cd zapret_src/sources
-          
-          # Компилируем напрямую все .c файлы движка nfqws
-          # Флаг -static зашьет uClibc внутрь, а -s -w (как в твоем примере) вырежут весь мусор и отладку
-          mips-openwrt-linux-uclibc-gcc -O3 -march=24kec -static \
-            nfqws/*.c \
-            -D_GNU_SOURCE -s -w \
-            -lpthread -o nfqws-uclibc-static
+          # Собираем статический бинарник под твой процессор Ralink (mipsle/softfloat)
+          # Флаги -s -w вырезают мусор, а -extldflags "-static" зашивают библиотеки внутрь файла
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w -extldflags '-static'" \
+            -o tpws-uclibc-static
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: nfqws-binary
-          path: zapret_src/sources/nfqws-uclibc-static
+          name: tpws-go-binary
+          path: tpws-go/tpws-uclibc-static
