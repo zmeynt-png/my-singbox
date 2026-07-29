@@ -1,10 +1,44 @@
+name: Build Zapret for uClibc (OpenWrt 15.05)
+
+on:
+  workflow_dispatch: # Позволяет запускать сборку вручную кнопкой
+
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Install Build Tools
-        run: sudo apt-get update && sudo apt-get install build-essential git libncurses5-dev gawk zlib1g-dev
-      - name: Download OpenWrt 15.05 SDK
-        run: wget https://openwrt.org
-      # Далее следуют команды компиляции zapret с использованием этого SDK
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git libncurses5-dev gawk zlib1g-dev ccache gettext libssl-dev wget bzip2
+
+      - name: Download and Unpack OpenWrt 15.05 SDK
+        run: |
+          # Качаем ТОЧНОЕ архивное SDK для uClibc под твой процессор Ralink RT3052
+          wget https://openwrt.org
+          tar -xjf OpenWrt-SDK-15.05-ramips-rt305x_gcc-4.8-linaro_uClibc-0.9.33.2.Linux-x86_64.tar.bz2
+          mv OpenWrt-SDK-15.05-ramips-rt305x_* sdk
+
+      - name: Clone Zapret Source Code
+        run: |
+          git clone --depth=1 https://github.com zapret_src
+
+      - name: Compile Static nfqws
+        run: |
+          # Прописываем пути к старому компилятору из SDK
+          export PATH=$GITHUB_WORKSPACE/sdk/staging_dir/toolchain-mips_24kec+dsp_gcc-4.8-linaro_uClibc-0.9.33.2/bin:$PATH
+          export STAGING_DIR=$GITHUB_WORKSPACE/sdk/staging_dir
+          
+          cd zapret_src/sources
+          
+          # Запускаем компиляцию с флагами статической сборки (статиком) под архитектуру 24kec
+          mips-openwrt-linux-uclibc-gcc -O3 -flto -march=24kec -static nfqws/*.c -o nfqws_static -lpthread
+
+      - name: Upload Compiled Binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: nfqws-uClibc-static
+          path: zapret_src/sources/nfqws_static
