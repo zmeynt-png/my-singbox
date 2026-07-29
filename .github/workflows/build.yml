@@ -1,4 +1,4 @@
-name: Build Static ByeDPI-Go (OpenWrt 15.05)
+name: Build Static SpoofDPI-Go (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
@@ -7,13 +7,22 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ByeDPI-Go Source
+      - name: Checkout SpoofDPI Source
         uses: actions/checkout@v4
         with:
-          repository: 'hiddify/byedpi-go'
+          repository: 'mufeedvh/binwrap' # Используем Go-обертку SpoofDPI
+          ref: 'main'
+        continue-on-error: true
+
+      # Если первый репозиторий обертки не пойдет, качаем напрямую оригинал
+      - name: Checkout Direct Source
+        if: steps.checkout.outcome == 'failure'
+        uses: actions/checkout@v4
+        with:
+          repository: 'mufeedvh/SpoofDPI'
           ref: 'main'
 
-      - name: Set up Go (твоя рабочая связка)
+      - name: Set up Go (твоя проверенная связка)
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
@@ -21,14 +30,14 @@ jobs:
 
       - name: Build Static MIPS Binary
         run: |
-          # Собираем статический монолитный бинарник обхода под процессор Ralink (mipsle + softfloat)
-          # Флаги -s -w чистят вес, а -extldflags "-static" намертво вшивают библиотеки внутрь файла
+          # Собираем статический монолитный бинарник обхода под твой процессор Ralink (mipsle + softfloat)
+          # Флаги -s -w чистят вес (как в твоем примере), а -extldflags "-static" зашивают uClibc внутрь файла
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -extldflags '-static'" \
-            -o byedpi-uclibc-static
+            -o spoofdpi-uclibc-static
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: byedpi-binary
-          path: byedpi-uclibc-static
+          name: spoofdpi-binary
+          path: spoofdpi-uclibc-static
