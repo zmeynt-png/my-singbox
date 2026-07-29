@@ -7,77 +7,102 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go (Свежая стабильная версия)
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
           go-version: 'stable'
           cache: false
 
-      - name: Create Monolithic Go Source
+      - name: Create Monolithic SOCKS5 Source
         run: |
           cat << 'EOF' > main.go
           package main
 
           import (
+            "encoding/binary"
+            "fmt"
+            "io"
             "net"
             "os"
           )
 
-          // Безопасный перекачиватель трафика с защитой от бесконечного цикла (High CPU)
-          func secureCopy(dst, src net.Conn, done chan bool) {
-            defer func() { done <- true }()
-            buf := make([]byte, 32768)
-            for {
-              n, err := src.Read(buf)
-              if n > 0 {
-                _, werr := dst.Write(buf[:n])
-                if werr != nil { return }
-              }
-              if err != nil { return } // Если ошибка или соединение закрылось — мгновенный выход!
-            }
-          }
-
-          func handleClient(client net.Conn) {
+          func handleSOCKS(client net.Conn) {
             defer client.Close()
-            
-            buf := make([]byte, 4096)
-            n, err := client.Read(buf)
-            if err != nil || n < 5 { return }
 
-            // Перенаправляем трафик на оригинальный IP, который изначально запрашивал клиент
-            // Мы вытаскиваем его из структуры перехваченного файрволом соединения
-            origAddr := client.LocalAddr().String()
-            server, err := net.Dial("tcp", origAddr)
-            if err != nil { return }
+            // 1. Приветствие SOCKS5
+            buf := make([]byte, 260)
+            if _, err := io.ReadFull(client, buf[:2]); err != nil { return }
+            nmethods := int(buf[1])
+            if _, err := io.ReadFull(client, buf[:nmethods]); err != nil { return }
+            client.Write([]byte{5, 0}) // Без авторизации
+
+            // 2. Запрос соединения
+            if _, err := io.ReadFull(client, buf[:4]); err != nil { return }
+            if buf[1] != 1 { return } // Только CONNECT
+
+            var dstAddr string
+            switch buf[3] {
+            case 1: // IPv4
+              if _, err := io.ReadFull(client, buf[:4]); err != nil { return }
+              dstAddr = net.IP(buf[:4]).String()
+            case 3: // Domain Name
+              if _, err := io.ReadFull(client, buf[:1]); err != nil { return }
+              addrLen := int(buf[0])
+              if _, err := io.ReadFull(client, buf[:addrLen]); err != nil { return }
+              dstAddr = string(buf[:addrLen])
+            default:
+              return
+            }
+
+            if _, err := io.ReadFull(client, buf[:2]); err != nil { return }
+            dstPort := binary.BigEndian.Uint16(buf[:2])
+            target := fmt.Sprintf("%s:%d", dstAddr, dstPort)
+
+            // Подключаемся к целевому сайту
+            server, err := net.Dial("tcp", target)
+            if err != nil {
+              client.Write([]byte{5, 1, 0, 1, 0, 0, 0, 0, 0, 0})
+              return
+            }
             defer server.Close()
+            client.Write([]byte{5, 0, 0, 1, 0, 0, 0, 0, 0, 0})
 
-            // Пробиваем DPI: Дробим TLS Client Hello на два осколка (разбиваем SNI)
-            if n > 10 {
+            // 3. ОБХОД DPI (Бьем TLS Client Hello на куски)
+            // Сначала читаем первый пакет от клиента (наш ПК/телефон)
+            n, err := client.Read(buf)
+            if err != nil { return }
+
+            if dstPort == 443 && n > 10 {
+              // Если это HTTPS, отправляем первые 5 байт фейком/осколком, затем остальное
               server.Write(buf[:5])
               server.Write(buf[5:n])
             } else {
               server.Write(buf[:n])
             }
 
-            // Запускаем двусторонний обмен с контролем утечки процессора
+            // Двусторонняя перекачка без утечек
             done := make(chan bool, 2)
-            go secureCopy(server, client, done)
-            go secureCopy(client, server, done)
-            
-            <-done // Ждем закрытия любой из половин и завершаем сессию
+            cp := func(dst, src net.Conn) {
+              io.Copy(dst, src)
+              done <- true
+            }
+            go cp(server, client)
+            go cp(client, server)
+            <-done
           }
 
           func main() {
-            listener, err := net.Listen("tcp", "0.0.0.0:8080")
+            fmt.Println("Автономный SOCKS5 Anti-DPI запущен на порту 1080...")
+            listener, err := net.Listen("tcp", "0.0.0.0:1080")
             if err != nil { os.Exit(1) }
             for {
               conn, err := listener.Accept()
-              if err == nil { go handleClient(conn) }
+              if err == nil { go handleSOCKS(conn) }
             }
           }
           EOF
 
-      - name: Compile Autonomus MIPS Binary
+      - name: Compile MIPS Binary
         run: |
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
