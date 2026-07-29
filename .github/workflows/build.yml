@@ -1,4 +1,4 @@
-name: Ultimate Auto-Install Go Build
+name: Stable Direct Go Build
 
 on:
   workflow_dispatch:
@@ -13,21 +13,32 @@ jobs:
           go-version: 'stable'
           cache: false
 
-      - name: Auto-Install & Compile MIPS Binary
+      - name: Auto-Download Source Code
         run: |
-          echo "--------------------------------------------------------"
-          echo "Гитхаб автоматически качает и компилирует пакет SpoofDPI..."
-          echo "--------------------------------------------------------"
-          
-          # Указан точный актуальный корень репозитория для go install
-          # Флаги -s -w вырезают отладку для жесткой экономии памяти Асуса
-          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go install -v \
-            -ldflags="-s -w" \
-            ://github.com
+          # Автоматически качаем официальные файлы SpoofDPI напрямую
+          git clone --depth=1 https://github.com src_code
 
-          # После go install бинарник с именем 'spoofdpi' падает в системный каталог
-          # Переносим его в корень воркфлоу для выгрузки в артефакты
-          mv ~/go/bin/linux_mipsle/spoofdpi $GITHUB_WORKSPACE/anti-dpi-mips
+      - name: Auto-Locate Main and Compile MIPS Binary
+        run: |
+          cd src_code
+          
+          # Робот сам сканирует каталоги и ищет, в какой именно папке авторы спрятали main.go
+          MAIN_PATH=$(find . -name "main.go" -exec dirname {} \; | head -n 1)
+          cd "$MAIN_PATH"
+          
+          echo "Гитхаб автоматически нашел точку входа и запускает сборку в: $(pwd)"
+          
+          # Наводим порядок в модулях перед стартом
+          go mod tidy 2>/dev/null || true
+          
+          # Компилируем под твой Ralink (mipsle + softfloat)
+          # Флаги -s -w чистят отладочный мусор для жесткой экономии памяти Асуса
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w" \
+            -o spoofdpi-mips
+
+          # Переносим готовый бинарник в корень воркфлоу для выгрузки
+          mv spoofdpi-mips $GITHUB_WORKSPACE/anti-dpi-mips
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
