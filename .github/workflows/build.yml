@@ -1,4 +1,4 @@
-name: Pure Auto-Search Static Go Build
+name: Stable Auto-Search Go Build
 
 on:
   workflow_dispatch:
@@ -7,49 +7,45 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go (Новейшая стабильная версия из облака)
+      - name: Set up Go (Свежая стабильная версия)
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable' # Робот автоматически возьмет самый свежий Go, убирая exit 5
+          go-version: 'stable'
           cache: false
 
       - name: Git Auto-Search & Clone
         run: |
-          # 1. Гитхаб через API ищет самый популярный мировой Go-проект по тегам обхода DPI
+          # Автоматический поиск самого популярного Go-проекта по обходу DPI
           SEARCH_URL=$(curl -s "https://github.com" \
             | jq -r '.items[0].clone_url')
           
-          echo "Гитхаб автоматически нашел и выбрал проект: $SEARCH_URL"
-          
-          # 2. Клонируем то, что нашел поисковик Гитхаба
+          echo "Выбран проект: $SEARCH_URL"
           git clone --depth=1 "$SEARCH_URL" workspace_src
 
-      - name: Auto-Locate and Compile Static Binary
+      - name: Auto-Locate and Compile Binary
         run: |
           cd workspace_src
           
-          # 3. Робот сам сканирует каталоги проекта и находит точку входа go.mod
+          # Автоматический поиск точки входа (go.mod)
           MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
           if [ ! -z "$MOD_PATH" ]; then
             cd "$MOD_PATH"
           fi
           
-          echo "Запуск компиляции в папке: $(pwd)"
-          
-          # Автоматически подчищаем модули под свежую версию языка
+          # Наводим порядок в модулях перед стартом
           go mod tidy 2>/dev/null || true
           
-          # 4. Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
-          # Флаги -extldflags "-static" зашивают uClibc внутрь файла намертво
+          # Компилируем под твой Ralink (mipsle + softfloat)
+          # Убран флаг extldflags, вызывавший ошибку exit 5. Флаги -s -w вырезают отладку для экономии места
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-            -ldflags="-s -w -extldflags '-static'" \
-            -o dynamic-anti-dpi
-            
-          # Переносим готовый файл в корень воркфлоу для выгрузки
-          mv dynamic-anti-dpi $GITHUB_WORKSPACE/
+            -ldflags="-s -w" \
+            -o anti-dpi-mips
+
+          # Переносим готовый файл в корень для отправки
+          mv anti-dpi-mips $GITHUB_WORKSPACE/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-anti-dpi
-          path: dynamic-anti-dpi
+          name: anti-dpi-binary
+          path: anti-dpi-mips
