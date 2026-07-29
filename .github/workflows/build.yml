@@ -15,49 +15,61 @@ jobs:
 
       - name: Create Monolithic Go Source
         run: |
-          # Записываем самодостаточный код обхода DPI прямо на лету
           cat << 'EOF' > main.go
           package main
 
           import (
-            "fmt"
-            "io"
             "net"
             "os"
           )
 
+          // Безопасный перекачиватель трафика с защитой от бесконечного цикла (High CPU)
+          func secureCopy(dst, src net.Conn, done chan bool) {
+            defer func() { done <- true }()
+            buf := make([]byte, 32768)
+            for {
+              n, err := src.Read(buf)
+              if n > 0 {
+                _, werr := dst.Write(buf[:n])
+                if werr != nil { return }
+              }
+              if err != nil { return } // Если ошибка или соединение закрылось — мгновенный выход!
+            }
+          }
+
           func handleClient(client net.Conn) {
             defer client.Close()
-            // Читаем первый пакет от твоего устройства (Client Hello)
+            
             buf := make([]byte, 4096)
             n, err := client.Read(buf)
             if err != nil || n < 5 { return }
 
-            // Извлекаем адрес назначения (Host) из заголовка TLS/HTTP вручную или парсим порты
-            // Для простоты и легкости делаем прозрачный TCP-сплиттер на порт 443
-            server, err := net.Dial("tcp", "1.1.1.1:443") // Заглушка, адрес подменит файрвол роутера
+            // Перенаправляем трафик на оригинальный IP, который изначально запрашивал клиент
+            // Мы вытаскиваем его из структуры перехваченного файрволом соединения
+            origAddr := client.LocalAddr().String()
+            server, err := net.Dial("tcp", origAddr)
             if err != nil { return }
             defer server.Close()
 
-            // ГЛАВНЫЙ ФОКУС ОБХОДА DPI: Дробим первый пакет на 2 мелкие части (разбиваем SNI)
+            // Пробиваем DPI: Дробим TLS Client Hello на два осколка (разбиваем SNI)
             if n > 10 {
-              server.Write(buf[:10])
-              server.Write(buf[10:n])
+              server.Write(buf[:5])
+              server.Write(buf[5:n])
             } else {
               server.Write(buf[:n])
             }
 
-            // Запускаем стандартную двустороннюю перекачку оставшегося трафика
-            go io.Copy(server, client)
-            io.Copy(client, server)
+            // Запускаем двусторонний обмен с контролем утечки процессора
+            done := make(chan bool, 2)
+            go secureCopy(server, client, done)
+            go secureCopy(client, server, done)
+            
+            <-done // Ждем закрытия любой из половин и завершаем сессию
           }
 
           func main() {
-            fmt.Println("Ультралегкий Anti-DPI запущен на порту 8080...")
             listener, err := net.Listen("tcp", "0.0.0.0:8080")
-            if err != nil {
-              os.Exit(1)
-            }
+            if err != nil { os.Exit(1) }
             for {
               conn, err := listener.Accept()
               if err == nil { go handleClient(conn) }
@@ -67,8 +79,6 @@ jobs:
 
       - name: Compile Autonomus MIPS Binary
         run: |
-          # Собираем наш созданный код под твой Ralink (mipsle + softfloat)
-          # Флаги -s -w чистят отладочные символы, экономя память Асуса
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
             -o anti-dpi-mips main.go
