@@ -1,4 +1,4 @@
-name: Build Static TPWS-GO (OpenWrt 15.05)
+name: Build Static ByeDPI-Go (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
@@ -7,31 +7,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Zapret Source
+      - name: Checkout ByeDPI-Go Source
         uses: actions/checkout@v4
         with:
-          repository: 'bol-van/zapret'
-          ref: 'master'
+          repository: 'hiddify/byedpi-go'
+          ref: 'main'
 
-      - name: Set up Go (по твоему проверенному шаблону)
+      - name: Set up Go (твоя рабочая связка)
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
           cache: false
 
-      - name: Build MIPSLE Static Binary
+      - name: Build Static MIPS Binary
         run: |
-          # Переходим в папку с Go-версией прокси из состава Zapret
-          cd tpws-go
-          
-          # Собираем статический бинарник под твой процессор Ralink (mipsle/softfloat)
-          # Флаги -s -w вырезают мусор, а -extldflags "-static" зашивают библиотеки внутрь файла
+          # Собираем статический монолитный бинарник обхода под процессор Ralink (mipsle + softfloat)
+          # Флаги -s -w чистят вес, а -extldflags "-static" намертво вшивают библиотеки внутрь файла
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -extldflags '-static'" \
-            -o tpws-uclibc-static
+            -o byedpi-uclibc-static
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tpws-go-binary
-          path: tpws-go/tpws-uclibc-static
+          name: byedpi-binary
+          path: byedpi-uclibc-static
