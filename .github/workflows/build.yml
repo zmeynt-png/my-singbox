@@ -1,4 +1,4 @@
-name: Stable Direct Go Build
+name: Build Archival Light Anti-DPI (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
@@ -7,28 +7,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout SpoofDPI Source
-        uses: actions/checkout@v4
-        with:
-          repository: 'xvzc/spoofdpi' # Чистый официальный адрес проекта SpoofDPI
-          ref: 'main'
-
-      - name: Set up Go (Свежая стабильная версия)
+      - name: Set up Go (Стабильная совместимая версия)
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable'
+          go-version: '1.21' # Фиксируем старую версию Go, идеальную для MIPS ядра 3.18
           cache: false
 
-      - name: Compile MIPS Binary Directly
+      - name: Clone Legacy SpoofDPI Code
         run: |
-          # Компилируем бинарник из точных исходников проекта под твой Ralink (mipsle + softfloat)
-          # Флаги -s -w вырезают мусор для жесткой экономии памяти Асуса
+          # Клонируем старую архивную версию SpoofDPI (релиз v0.1.0), которая гарантированно поддерживает MIPS
+          git clone --branch v0.1.0 --single-branch https://github.com src_legacy
+          
+      - name: Compile Legacy MIPS Binary
+        run: |
+          cd src_legacy
+          
+          # Наводим порядок в архивных модулях
+          go mod tidy
+          
+          # Собираем легкий автономный файл без современных системных вызовов
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -o spoofdpi-mips
+            -o spoofdpi-legacy
+
+          mv spoofdpi-legacy $GITHUB_WORKSPACE/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: spoofdpi-binary
-          path: spoofdpi-mips
+          name: spoofdpi-legacy-binary
+          path: spoofdpi-legacy
