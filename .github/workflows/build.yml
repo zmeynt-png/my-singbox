@@ -1,4 +1,4 @@
-name: Build Static ByeDPI-Go (OpenWrt 15.05)
+name: Pure Auto-Search Static Go Build
 
 on:
   workflow_dispatch:
@@ -7,28 +7,45 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout ByeDPI-Go Source
-        uses: actions/checkout@v4
-        with:
-          repository: 'xvzc/byedpi-go' # Официальный живой репозиторий ByeDPI на Go
-          ref: 'main'
+      - name: Auto-Discover and Clone Repo
+        run: |
+          # Робот сам запрашивает у GitHub API точный адрес репозитория spoofdpi
+          REPO_URL=$(curl -s "https://github.com" | jq -r '.clone_url')
+          
+          echo "Гитхаб автоматически нашел проект: $REPO_URL"
+          
+          # Клонируем то, что нашел сам Гитхаб
+          git clone --depth=1 "$REPO_URL" workspace_src
 
       - name: Set up Go (Твоя проверенная связка)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22' # Возвращаем стабильный Go под твою uClibc
+          go-version: '1.22'
           cache: false
 
-      - name: Build Static MIPS Binary
+      - name: Auto-Locate and Compile Binary
         run: |
-          # Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
-          # Флаги -s -w чистят вес, как в твоем примере с WireGuard
+          cd workspace_src
+          
+          # Робот сам сканирует каталоги и ищет, где лежит файл инициализации go.mod
+          MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
+          if [ ! -z "$MOD_PATH" ]; then
+            cd "$MOD_PATH"
+          fi
+          
+          echo "Запуск компиляции в папке: $(pwd)"
+          
+          # Собираем монолит под твой процессор Ralink (mipsle + softfloat)
+          # Флаги -s -w вырезают мусор (как в твоем примере с WireGuard)
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w" \
-            -o byedpi-mips
+            -o dynamic-anti-dpi
+            
+          # Переносим готовый файл в корень для отправки в артефакты
+          mv dynamic-anti-dpi $GITHUB_WORKSPACE/
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: byedpi-binary
-          path: byedpi-mips
+          name: compiled-anti-dpi
+          path: dynamic-anti-dpi
