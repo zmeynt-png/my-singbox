@@ -1,4 +1,4 @@
-name: Ultimate Auto-Search Static Go Build
+name: Build Static Go-ByeDPI (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
@@ -7,58 +7,31 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Dynamic Go (Самая свежая стабильная версия)
+      - name: Checkout Go-ByeDPI Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'ulwanski/go-byedpi' # Проверенный рабочий порт ByeDPI на Go
+          ref: 'main'
+
+      - name: Set up Dynamic Go (Новейшая стабильная версия)
         uses: actions/setup-go@v5
         with:
-          go-version: 'stable' # Робот сам возьмет новейший Go, исключая exit 5
+          go-version: 'stable' # Авто-выбор последней версии Go
           cache: false
 
-      - name: Git Search, Auto-Clone & Fail-Proof Compile
+      - name: Build Static MIPS Binary
         run: |
-          # 1. Запрашиваем топ-3 самых популярных Go-проектов для обхода DPI
-          curl -s "https://github.com" > search.json
+          # Обновляем и вычищаем модули проекта перед сборкой
+          go mod tidy
           
-          # Запускаем цикл перебора проектов на случай, если какой-то один не соберется
-          for i in 0 1 2; do
-            CLONE_URL=$(jq -r ".items[$i].clone_url" search.json)
-            if [ "$CLONE_URL" = "null" ] || [ -z "$CLONE_URL" ]; then continue; fi
-            
-            echo "--------------------------------------------------------"
-            echo "Попытка сборки проекта №$i: $CLONE_URL"
-            echo "--------------------------------------------------------"
-            
-            rm -rf workspace_src
-            git clone --depth=1 "$CLONE_URL" workspace_src || continue
-            
-            cd workspace_src
-            
-            # 2. Умный поиск папки с файлом инициализации go.mod
-            MOD_PATH=$(find . -name "go.mod" -exec dirname {} \; | head -n 1)
-            if [ -not -z "$MOD_PATH" ]; then
-              cd "$MOD_PATH"
-            fi
-            
-            # Обновляем зависимости проекта под свежий Go
-            go mod tidy 2>/dev/null || true
-            
-            # 3. Пытаемся скомпилировать статиком под твой mipsle/softfloat
-            if GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-              -ldflags="-s -w -extldflags '-static'" \
-              -o $GITHUB_WORKSPACE/anti-dpi-static; then
-              
-              echo "ПОБЕДА! Проект успешно скомпилирован."
-              exit 0
-            else
-              echo "Этот проект выдал ошибку, переходим к следующему..."
-              cd $GITHUB_WORKSPACE
-            fi
-          done
-          
-          echo "Ни один из топ-3 проектов не смог собраться."
-          exit 1
+          # Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
+          # Флаги -extldflags "-static" намертво зашивают все вызовы uClibc внутрь бинарника
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+            -ldflags="-s -w -extldflags '-static'" \
+            -o byedpi-static main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-anti-dpi
-          path: anti-dpi-static
+          name: byedpi-uclibc-static
+          path: byedpi-static
