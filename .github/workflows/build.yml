@@ -1,4 +1,4 @@
-name: Auto-Search & Build Static Anti-DPI (OpenWrt 15.05)
+name: Build Static ByeDPI-Go (OpenWrt 15.05)
 
 on:
   workflow_dispatch:
@@ -7,16 +7,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Automatically Discover and Clone Repo
-        run: |
-          # Запрашиваем у API GitHub самый популярный и живой репозиторий по тегу spoofdpi
-          REPO_URL=$(curl -s "https://github.com" \
-            | jq -r '.items[0].clone_url')
-          
-          echo "Автоматически найден репозиторий: $REPO_URL"
-          
-          # Клонируем то, что нашел сам Гитхаб
-          git clone --depth=1 "$REPO_URL" src_code
+      - name: Checkout NxtFilter Source
+        uses: actions/checkout@v4
+        with:
+          repository: 'bepass-org/nxtfilter' # Официальный живой аналог ByeDPI на Go
+          ref: 'main'
 
       - name: Set up Go (твоя проверенная связка)
         uses: actions/setup-go@v5
@@ -24,30 +19,16 @@ jobs:
           go-version: '1.22'
           cache: false
 
-      - name: Auto-Locate Main and Build Static Binary
+      - name: Build Static MIPS Binary
         run: |
-          cd src_code
-          
-          # Гитхаб сам ищет, где в проекте лежит главный файл (main.go или go.mod)
-          if [ -f "go.mod" ]; then
-            echo "Модуль Go найден в корне."
-          else
-            # Если проект разбит по папкам, ищем где лежит инициализация
-            CD_PATH=$(find . -name "go.mod" -exec dirname {} \;)
-            cd "$CD_PATH"
-          fi
-
-          # Собираем статический монолит под твой Ralink (mipsle + softfloat)
-          # Флаги -extldflags "-static" зашивают библиотеки uClibc внутрь файла намертво
+          # Собираем статический монолит под твой процессор Ralink (mipsle + softfloat)
+          # Флаги -s -w чистят вес, а -extldflags "-static" зашивают uClibc внутрь файла намертво
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
             -ldflags="-s -w -extldflags '-static'" \
-            -o anti-dpi-uclibc-static
-
-          # Переносим готовый файл в корень для отправки в артефакты
-          mv anti-dpi-uclibc-static $GITHUB_WORKSPACE/
+            -o byedpi-uclibc-static main.go
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: anti-dpi-binary
-          path: anti-dpi-uclibc-static
+          name: byedpi-binary
+          path: byedpi-uclibc-static
